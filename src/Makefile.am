@@ -1,10 +1,10 @@
-INCLUDES = -I$(VARNISHSRC)/include -I$(VARNISHSRC) -I/usr/local/include
+INCLUDES = -I$(VARNISHSRC)/include -I$(VARNISHSRC) -I$(LUA_INC)
 
 vmoddir = $(VMODDIR)
 vmod_LTLIBRARIES = libvmod_lua.la
 
-libvmod_lua_la_LDFLAGS = -module -export-dynamic -version-info 1:0:0
-libvmod_lua_la_LIBADD = -llua
+libvmod_lua_la_LDFLAGS = -module -export-dynamic -version-info 1:0:0 -Wl,-rpath,$(LUA_LIB) -Wl,-e,__libvmod_lua_main
+libvmod_lua_la_LIBADD = -L$(LUA_LIB) -llua
 
 libvmod_lua_la_SOURCES = \
 	vcc_if.c \
