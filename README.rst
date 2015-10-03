@@ -137,7 +137,11 @@ Example
 DEPENDENCIES
 ============
 
-* liblua (http://www.lua.org)
+* liblua-5.1 (http://www.lua.org)
+
+or
+
+* LuaJIT (http://luajit.org)
 
 INSTALLATION
 ============
