@@ -35,6 +35,7 @@ foo.lua
 -------
 
 ::
+
     function foobar()
         local resp = "X-Foo-Header-Is-" .. varnish.req.http["X-Foo"]
         return resp
@@ -55,6 +56,7 @@ VCL variables exported as Lua global variables:
 For example, you can got user-agent header of request:
 
 ::
+
     ua = varnish.req.http["User-Agent"]
 
 These variables are read only.
