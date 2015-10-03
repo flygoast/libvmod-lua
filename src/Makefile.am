@@ -1,3 +1,5 @@
+LUA_LIB ?= /usr/local/lib
+LUA_INC ?= /usr/local/include
 INCLUDES = -I$(VARNISHSRC)/include -I$(VARNISHSRC) -I$(LUA_INC)
 
 vmoddir = $(VMODDIR)
