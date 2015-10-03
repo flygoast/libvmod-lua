@@ -79,8 +79,7 @@ Prototype
 Return value
 	VOID
 Description
-	Initialize a lua state struct to be used. Param 'path' and 'cpath' used
-    to specify Lua search paths.
+	Initialize a lua state struct to be used. Param 'path' and 'cpath' used to specify Lua search paths.
 Example
         ::
 
@@ -96,8 +95,7 @@ Prototype
 Return value
 	VOID
 Description
-	Execute the lua script specified by path S. All code should put in global
-    Lua functions. It can be called multitimes.
+	Execute the lua script specified by path S. All code should put in global Lua functions. It can be called multitimes.
 Example
         ::
 
