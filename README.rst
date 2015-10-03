@@ -117,6 +117,22 @@ Example
 
                 set resp.http.x-lua = lua.call("foobar");
 
+cleanup
+-------
+
+Prototype
+        ::
+
+                cleanup()
+Return value
+	VOID
+Description
+	Release the resource used by Lua.
+Example
+        ::
+
+                lua.cleanup();
+
 
 DEPENDENCIES
 ============
