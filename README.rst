@@ -6,20 +6,57 @@ vmod_lua
 Varnish Lua Module
 ----------------------
 
-:Author: FengGu
-:Date: 2013-05-30
-:Version: 0.1
+:Author: Gu Feng
+:Date: 2015-10-04
+:Version: 0.2
 :Manual section: 3
 
 SYNOPSIS
 ========
 
+vcl:
+```plain
 import lua;
+
+sub vcl_recv {
+    lua.init("/path/to/?.lua", "/path/to/?.so");
+    lua.loadfile("/path/to/lua/foo.lua");
+}
+
+sub vcl_deliver {
+    set resp.http.x-FOO = lua.call("foobar");
+    lua.cleanup();
+}
+
+```
+
+foo.lua:
+```lua
+function foobar()
+    local resp = "X-Foo-Header-Is-" .. varnish.req.http["X-Foo"]
+    return resp
+end
+```
 
 DESCRIPTION
 ===========
 
 Varnish lua vmod is a module to let you can execute lua script in VCL.
+VCL variables exported as Lua global variables:
+
+- varnish.req.*
+- varnish.bereq.*
+- varnish.beresp.*
+- varnish.obj.*
+- varnish.resp.*
+
+For example, you can got user-agent header of request:
+
+```lua
+ua = varnish.req.http["User-Agent"]
+```
+
+These variables are read only.
 
 STATUS
 ======
@@ -35,63 +72,50 @@ init
 Prototype
         ::
 
-                init()
+                init(STRING path, STRING cpath)
 Return value
 	VOID
 Description
-	Initialize a lua state struct to be used.
+	Initialize a lua state struct to be used. Param 'path' and 'cpath' used
+    to specify Lua search paths.
 Example
         ::
 
-                lua.init()
+                lua.init("/path/to/?.lua", "/path/to/?.so");
 
-dofile_void
-------------
+loadfile
+--------
 
 Prototype
         ::
 
-                dofile_void(STRING S)
+                loadfile(STRING S)
 Return value
 	VOID
 Description
-	Execute the lua script specified by S
+	Execute the lua script specified by path S. All code should put in global
+    Lua functions. It can be called multitimes.
 Example
         ::
 
-                lua.dofile_void("foo.lua")
+                lua.loadfile("/path/to/foo.lua");
 
-dofile_str
-------------
+call
+----
 
 Prototype
         ::
 
-                dofile_str(STRING S)
+                call(STRING S)
 Return value
 	STRING
 Description
-	Execute the lua script specified by S, and return a string
+	Execute the lua function specified by S, and return a string or nil.
 Example
         ::
 
-                set resp.http.x-lua = lua.dofile_str("foo.lua")
+                set resp.http.x-lua = lua.call("foobar");
 
-dofile_int
-------------
-
-Prototype
-        ::
-
-                dofile_int(STRING S)
-Return value
-	INT
-Description
-	Execute the lua script specified by S, and return a INT
-Example
-        ::
-
-                lua.dofile_int("foo.lua")
 
 DEPENDENCIES
 ============
@@ -107,6 +131,9 @@ using the varnishtest tool.
 
 Usage::
 
+ export LUA_INC=/path/to/luainc
+ export LUA_LIB=/path/to/lualib
+ sh ./autogen.sh
  ./configure VARNISHSRC=DIR [VMODDIR=DIR]
 
 `VARNISHSRC` is the directory of the Varnish source tree for which to
@@ -122,19 +149,10 @@ Make targets:
 * make - builds the vmod
 * make install - installs your vmod in `VMODDIR`
 
-In your VCL you could then use this vmod along the following lines::
-        
-        import lua;
-
-        sub vcl_deliver {
-                set resp.http.x-lua = lua.dofile_str("foo.lua");
-        }
-
-
 COPYRIGHT
 =========
 
 This document is licensed under the same license as the
 libvmod-lua project. See LICENSE for details.
 
-* Copyright (c) 2013 FengGu <flygoast@gmail.com>
+* Copyright (c) 2013-2015 Gu Feng <flygoast@126.com>

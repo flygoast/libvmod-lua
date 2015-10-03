@@ -19,7 +19,7 @@
 #define DEBUG       1
 
 
-#define LIBVMOD_LUA_VERSION     "0.0.1"
+#define LIBVMOD_LUA_VERSION     "0.2"
 #define LIBVMOD_LUA_AUTHOR      "Gu Feng <flygoast@126.com>"
 
 
