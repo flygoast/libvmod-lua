@@ -170,6 +170,16 @@ Make targets:
 * make - builds the vmod
 * make install - installs your vmod in `VMODDIR`
 
+NOTE
+====
+
+If you want to load C modules compiled for Lua with require(), you need to
+make shure the public symbols (e.g. lua_setmetatable) are exported.
+
+Two methods:
+- Link liblua or libluajit to the varnishd binary file
+- Link liblua or libluajitevery to every C modules 
+
 COPYRIGHT
 =========
 
