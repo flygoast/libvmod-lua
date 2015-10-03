@@ -14,29 +14,31 @@ Varnish Lua Module
 SYNOPSIS
 ========
 
-vcl:
-```plain
-import lua;
+vcl
+---
 
-sub vcl_recv {
-    lua.init("/path/to/?.lua", "/path/to/?.so");
-    lua.loadfile("/path/to/lua/foo.lua");
-}
+::
 
-sub vcl_deliver {
-    set resp.http.x-FOO = lua.call("foobar");
-    lua.cleanup();
-}
+    import lua;
+    
+    sub vcl_recv {
+        lua.init("/path/to/?.lua", "/path/to/?.so");
+        lua.loadfile("/path/to/lua/foo.lua");
+    }
+    
+    sub vcl_deliver {
+        set resp.http.x-FOO = lua.call("foobar");
+        lua.cleanup();
+    }
 
-```
+foo.lua
+-------
 
-foo.lua:
-```lua
-function foobar()
-    local resp = "X-Foo-Header-Is-" .. varnish.req.http["X-Foo"]
-    return resp
-end
-```
+::
+    function foobar()
+        local resp = "X-Foo-Header-Is-" .. varnish.req.http["X-Foo"]
+        return resp
+    end
 
 DESCRIPTION
 ===========
@@ -52,9 +54,8 @@ VCL variables exported as Lua global variables:
 
 For example, you can got user-agent header of request:
 
-```lua
-ua = varnish.req.http["User-Agent"]
-```
+::
+    ua = varnish.req.http["User-Agent"]
 
 These variables are read only.
 
