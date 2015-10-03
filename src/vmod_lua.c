@@ -1073,7 +1073,7 @@ vmod_loadfile(struct sess *sp, struct vmod_priv *priv, const char *filename)
     if (lua_pcall(L, 0, 0, base) != 0) {
         LOG_E("VMOD[lua] lua_pcall(\"%s\") failed, errstr=\"%s\"\n",
               filename, luaL_checkstring(L, -1));
-        lua_pop(L, 1);
+        lua_settop(L, 0);
         return;
     }
 
@@ -1127,7 +1127,8 @@ vmod_call(struct sess *sp, struct vmod_priv *priv, const char *function)
         if (lua_pcall(L, 0, 1, base) != 0) {
             LOG_E("VMOD[lua] call function \"%s\" failed, errstr=\"%s\"\n",
                   function, luaL_checkstring(L, -1));
-            lua_pop(L, 1);
+            /* clear Lua stack to execute other functions */
+            lua_settop(L, 0);
             return NULL;
         }
 
