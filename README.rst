@@ -176,8 +176,10 @@ NOTE
 If you want to load C modules compiled for Lua with require(), you need to
 make shure the public symbols (e.g. lua_setmetatable) are exported.
 
-Two methods:
 - Link liblua or libluajit to the varnishd binary file
+
+or
+
 - Link liblua or libluajitevery to every C modules 
 
 COPYRIGHT
