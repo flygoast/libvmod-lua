@@ -101,11 +101,26 @@ static int vcl_beresp_backend_name(lua_State *L, struct sess *sp);
 static int vcl_beresp_backend_ip(lua_State *L, struct sess *sp);
 static int vcl_beresp_backend_port(lua_State *L, struct sess *sp);
 static int vcl_beresp_http_get(lua_State *L);
+static int vcl_obj_proto(lua_State *L, struct sess *sp);
+static int vcl_obj_status(lua_State *L, struct sess *sp);
+static int vcl_obj_response(lua_State *L, struct sess *sp);
+static int vcl_obj_hits(lua_State *L, struct sess *sp);
+static int vcl_obj_ttl(lua_State *L, struct sess *sp);
+static int vcl_obj_grace(lua_State *L, struct sess *sp);
+static int vcl_obj_keep(lua_State *L, struct sess *sp);
+static int vcl_obj_lastuse(lua_State *L, struct sess *sp);
+static int vcl_obj_http_get(lua_State *L);
+static int vcl_resp_proto(lua_State *L, struct sess *sp);
+static int vcl_resp_status(lua_State *L, struct sess *sp);
+static int vcl_resp_response(lua_State *L, struct sess *sp);
+static int vcl_resp_http_get(lua_State *L);
 static int vcl_var_get(lua_State *L, var_handler_t *vh);
 static int vcl_forbidden_set(lua_State *L);
 static void inject_req_http(lua_State *L, struct sess *sp);
 static void inject_bereq_http(lua_State *L, struct sess *sp);
 static void inject_beresp_http(lua_State *L, struct sess *sp);
+static void inject_obj_http(lua_State *L, struct sess *sp);
+static void inject_resp_http(lua_State *L, struct sess *sp);
 static void inject_sess(lua_State *L, struct sess *sp);
 static int traceback(lua_State *L);
 static int atpanic(lua_State *L);
@@ -178,6 +193,24 @@ static var_handler_t  beresp_handlers[] = {
     { NULL, 0, NULL }
 };
 
+static var_handler_t  obj_handlers[] = {
+    { "proto", sizeof("proto") - 1, vcl_obj_proto },
+    { "status", sizeof("status") - 1, vcl_obj_status },
+    { "response", sizeof("response") - 1, vcl_obj_response },
+    { "hits", sizeof("hits") - 1, vcl_obj_hits },
+    { "ttl", sizeof("ttl") - 1, vcl_obj_ttl },
+    { "grace", sizeof("grace") - 1, vcl_obj_grace },
+    { "keep", sizeof("keep") - 1, vcl_obj_keep },
+    { "lastuse", sizeof("lastuse") - 1, vcl_obj_lastuse },
+    { NULL, 0, NULL }
+};
+
+static var_handler_t resp_handlers[] = {
+    { "proto", sizeof("proto") - 1, vcl_resp_proto },
+    { "status", sizeof("status") - 1, vcl_resp_status },
+    { "response", sizeof("response") - 1, vcl_resp_response },
+};
+ 
 static var_handler_t  backend_handlers[] = {
     { "name", sizeof("name") - 1, vcl_req_backend_name },
     { "healthy", sizeof("healthy") - 1, vcl_req_backend_healthy },
@@ -190,6 +223,139 @@ static var_handler_t beresp_backend_handlers[] = {
     { "port", sizeof("port") - 1, vcl_beresp_backend_port },
     { NULL, 0, NULL }
 };
+
+
+static int
+vcl_obj_proto(lua_State *L, struct sess *sp)
+{
+    const char  *p;
+
+    p = VRT_r_obj_proto(sp);
+    lua_pushstring(L, p);
+
+    return 1;
+}
+
+
+static int
+vcl_resp_proto(lua_State *L, struct sess *sp)
+{
+    const char  *p;
+
+    p = VRT_r_resp_proto(sp);
+    lua_pushstring(L, p);
+
+    return 1;
+}
+
+
+static int
+vcl_resp_status(lua_State *L, struct sess *sp)
+{
+    int  status;
+
+    status = VRT_r_resp_status(sp);
+    lua_pushinteger(L, status);
+
+    return 1;
+}
+
+
+static int
+vcl_resp_response(lua_State *L, struct sess *sp)
+{
+    const char  *p;
+
+    p = VRT_r_resp_response(sp);
+    lua_pushstring(L, p);
+
+    return 1;
+}
+
+
+static int
+vcl_obj_status(lua_State *L, struct sess *sp)
+{
+    int  status;
+
+    status = VRT_r_obj_status(sp);
+    lua_pushinteger(L, status);
+
+    return 1;
+}
+
+
+static int
+vcl_obj_response(lua_State *L, struct sess *sp)
+{
+    const char  *p;
+
+    p = VRT_r_obj_response(sp);
+    lua_pushstring(L, p);
+
+    return 1;
+}
+
+
+static int
+vcl_obj_hits(lua_State *L, struct sess *sp)
+{
+    int  hits;
+
+    hits = VRT_r_obj_hits(sp);
+    lua_pushinteger(L, hits);
+
+    return 1;
+
+}
+
+
+static int
+vcl_obj_ttl(lua_State *L, struct sess *sp)
+{
+    double  ttl;
+
+    ttl = VRT_r_obj_ttl(sp);
+    lua_pushnumber(L, (lua_Number) ttl);
+
+    return 1;
+}
+
+
+static int
+vcl_obj_grace(lua_State *L, struct sess *sp)
+{
+    double  grace;
+
+    grace = VRT_r_obj_grace(sp);
+    lua_pushnumber(L, (lua_Number) grace);
+
+    return 1;
+}
+
+
+static int
+vcl_obj_keep(lua_State *L, struct sess *sp)
+{
+    double  keep;
+
+    keep = VRT_r_obj_keep(sp);
+    lua_pushnumber(L, (lua_Number) keep);
+
+    return 1;
+}
+
+
+static int
+vcl_obj_lastuse(lua_State *L, struct sess *sp)
+{
+    double  lastuse;
+
+    lastuse = VRT_r_obj_lastuse(sp);
+    lua_pushnumber(L, (lua_Number) lastuse);
+
+    return 1;
+}
 
 
 static void
@@ -951,6 +1117,88 @@ vcl_beresp_http_get(lua_State *L)
 
 
 static int
+vcl_obj_http_get(lua_State *L)
+{
+    struct sess  *sp;
+    struct vsb   *sbh;
+    const char   *p;
+    char         *ret;
+    size_t        len;
+
+    sp = get_sess(L);
+    if (sp == NULL) {
+        return luaL_error(L, "no session object found");
+    }
+
+    if (lua_type(L, -1) != LUA_TSTRING) {
+        return luaL_error(L, "bad http header name");
+    }
+
+    p = lua_tolstring(L, -1, &len);
+
+    LOG_T("VMOD[lua] get obj header \"%*s\"\n", len, p);
+
+    /* contruct header needed by Varnish */
+
+    sbh = VSB_new_auto();
+    AN(sbh);
+
+    VSB_printf(sbh, "%c%.*s:%c", (char)(len + 1), len, p, 0);
+    AZ(VSB_finish(sbh));
+
+    if (!http_GetHdr(sp->obj->http, VSB_data(sbh), &ret)) {
+        lua_pushnil(L);
+    } else {
+        lua_pushstring(L, ret);
+    }
+
+    VSB_delete(sbh);
+    return 1;
+}
+
+
+static int
+vcl_resp_http_get(lua_State *L)
+{
+    struct sess  *sp;
+    struct vsb   *sbh;
+    const char   *p;
+    char         *ret;
+    size_t        len;
+
+    sp = get_sess(L);
+    if (sp == NULL) {
+        return luaL_error(L, "no session object found");
+    }
+
+    if (lua_type(L, -1) != LUA_TSTRING) {
+        return luaL_error(L, "bad http header name");
+    }
+
+    p = lua_tolstring(L, -1, &len);
+
+    LOG_T("VMOD[lua] get response header \"%*s\"\n", len, p);
+
+    /* contruct header needed by Varnish */
+
+    sbh = VSB_new_auto();
+    AN(sbh);
+
+    VSB_printf(sbh, "%c%.*s:%c", (char)(len + 1), len, p, 0);
+    AZ(VSB_finish(sbh));
+
+    if (!http_GetHdr(sp->wrk->resp, VSB_data(sbh), &ret)) {
+        lua_pushnil(L);
+    } else {
+        lua_pushstring(L, ret);
+    }
+
+    VSB_delete(sbh);
+    return 1;
+}
+
+
+static int
 vcl_forbidden_set(lua_State *L)
 {
     return luaL_error(L, "table is read only");
@@ -1014,6 +1262,44 @@ inject_beresp_http(lua_State *L, struct sess *sp)
 }
 
 
+static void
+inject_obj_http(lua_State *L, struct sess *sp)
+{
+    lua_newtable(L);                    /* varnish.obj.http table */
+
+    lua_createtable(L, 0, 2);           /* metatable */
+
+    lua_pushcfunction(L, vcl_obj_http_get);
+    lua_setfield(L, -2, "__index");
+
+    lua_pushcfunction(L, vcl_forbidden_set);
+    lua_setfield(L, -2, "__newindex");
+
+    lua_setmetatable(L, -2);            /* tie the metatable to http table */
+
+    lua_setfield(L, -2, "http");
+}
+
+
+static void
+inject_resp_http(lua_State *L, struct sess *sp)
+{
+    lua_newtable(L);                    /* varnish.resp.http table */
+
+    lua_createtable(L, 0, 2);           /* metatable */
+
+    lua_pushcfunction(L, vcl_obj_http_get);
+    lua_setfield(L, -2, "__index");
+
+    lua_pushcfunction(L, vcl_forbidden_set);
+    lua_setfield(L, -2, "__newindex");
+
+    lua_setmetatable(L, -2);            /* tie the metatable to http table */
+
+    lua_setfield(L, -2, "http");
+}
+
+
 static int
 vcl_varnish_get(lua_State *L)
 {
@@ -1065,6 +1351,20 @@ static int
 vcl_beresp_get(lua_State *L)
 {
     return vcl_var_get(L, beresp_handlers);
+}
+
+
+static int
+vcl_obj_get(lua_State *L)
+{
+    return vcl_var_get(L, obj_handlers);
+}
+
+
+static int
+vcl_resp_get(lua_State *L)
+{
+    return vcl_var_get(L, resp_handlers);
 }
 
 
@@ -1245,6 +1545,50 @@ inject_beresp(lua_State *L, struct sess *sp)
 }
 
 
+static int
+inject_obj(lua_State *L, struct sess *sp)
+{
+    lua_newtable(L);                    /* table varnish.obj.* */
+
+    /* table varnish.obj.http.* */
+    inject_obj_http(L, sp);
+
+    lua_createtable(L, 0, 2);           /* metatable */
+
+    lua_pushcfunction(L, vcl_obj_get);
+    lua_setfield(L, -2, "__index");
+
+    lua_pushcfunction(L, vcl_forbidden_set);
+    lua_setfield(L, -2, "__newindex");
+
+    lua_setmetatable(L, -2);
+
+    lua_setfield(L, -2, "obj");
+}
+
+
+static int
+inject_resp(lua_State *L, struct sess *sp)
+{
+    lua_newtable(L);                    /* table varnish.resp.* */
+
+    /* table varnish.resp.http.* */
+    inject_resp_http(L, sp);
+
+    lua_createtable(L, 0, 2);           /* metatable */
+
+    lua_pushcfunction(L, vcl_resp_get);
+    lua_setfield(L, -2, "__index");
+
+    lua_pushcfunction(L, vcl_forbidden_set);
+    lua_setfield(L, -2, "__newindex");
+
+    lua_setmetatable(L, -2);
+
+    lua_setfield(L, -2, "resp");
+}
+
+
 static void
 inject_sess(lua_State *L, struct sess *sp)
 {
@@ -1264,6 +1608,12 @@ inject_sess(lua_State *L, struct sess *sp)
 
     /* table varnish.beresp.* */
     inject_beresp(L, sp);
+
+    /* table varnish.obj.* */
+    inject_obj(L, sp);
+
+    /* table varnish.resp.* */
+    inject_resp(L, sp);
 
     lua_createtable(L, 0, 2);           /* metatable */
     lua_pushcfunction(L, vcl_varnish_get);
