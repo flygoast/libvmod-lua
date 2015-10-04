@@ -27,7 +27,6 @@ vcl
     
     sub vcl_deliver {
         set resp.http.x-FOO = lua.call("foobar");
-        lua.cleanup();
     }
 
 foo.lua
