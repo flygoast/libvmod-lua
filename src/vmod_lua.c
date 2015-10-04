@@ -19,7 +19,7 @@
 #define DEBUG       1
 
 
-#define LIBVMOD_LUA_VERSION     "0.2"
+#define LIBVMOD_LUA_VERSION     "0.3"
 #define LIBVMOD_LUA_AUTHOR      "Gu Feng <flygoast@126.com>"
 
 
@@ -116,12 +116,12 @@ static int vcl_resp_response(lua_State *L, struct sess *sp);
 static int vcl_resp_http_get(lua_State *L);
 static int vcl_var_get(lua_State *L, var_handler_t *vh);
 static int vcl_forbidden_set(lua_State *L);
-static void inject_req_http(lua_State *L, struct sess *sp);
-static void inject_bereq_http(lua_State *L, struct sess *sp);
-static void inject_beresp_http(lua_State *L, struct sess *sp);
-static void inject_obj_http(lua_State *L, struct sess *sp);
-static void inject_resp_http(lua_State *L, struct sess *sp);
-static void inject_sess(lua_State *L, struct sess *sp);
+static void inject_req_http(lua_State *L);
+static void inject_bereq_http(lua_State *L);
+static void inject_beresp_http(lua_State *L);
+static void inject_obj_http(lua_State *L);
+static void inject_resp_http(lua_State *L);
+static void inject_varnish(lua_State *L);
 static int traceback(lua_State *L);
 static int atpanic(lua_State *L);
 
@@ -969,8 +969,7 @@ new_lua_state(struct sess *sp, const char *path, const char *cpath)
 
     lua_pop(L, 1);      /* rmeove the "package" table */
 
-    inject_sess(L, sp);
-    set_sess(L, sp);
+    inject_varnish(L);
 
     return L;
 
@@ -1206,7 +1205,7 @@ vcl_forbidden_set(lua_State *L)
 
 
 static void
-inject_req_http(lua_State *L, struct sess *sp)
+inject_req_http(lua_State *L)
 {
     lua_newtable(L);                    /* varnish.req.http table */
 
@@ -1225,7 +1224,7 @@ inject_req_http(lua_State *L, struct sess *sp)
 
 
 static void
-inject_bereq_http(lua_State *L, struct sess *sp)
+inject_bereq_http(lua_State *L)
 {
     lua_newtable(L);                    /* varnish.bereq.http table */
 
@@ -1244,7 +1243,7 @@ inject_bereq_http(lua_State *L, struct sess *sp)
 
 
 static void
-inject_beresp_http(lua_State *L, struct sess *sp)
+inject_beresp_http(lua_State *L)
 {
     lua_newtable(L);                    /* varnish.beresp.http table */
 
@@ -1263,7 +1262,7 @@ inject_beresp_http(lua_State *L, struct sess *sp)
 
 
 static void
-inject_obj_http(lua_State *L, struct sess *sp)
+inject_obj_http(lua_State *L)
 {
     lua_newtable(L);                    /* varnish.obj.http table */
 
@@ -1282,7 +1281,7 @@ inject_obj_http(lua_State *L, struct sess *sp)
 
 
 static void
-inject_resp_http(lua_State *L, struct sess *sp)
+inject_resp_http(lua_State *L)
 {
     lua_newtable(L);                    /* varnish.resp.http table */
 
@@ -1398,7 +1397,7 @@ vcl_var_get(lua_State *L, var_handler_t *vh)
 
 
 static int
-inject_client(lua_State *L, struct sess *sp)
+inject_client(lua_State *L)
 {
     lua_newtable(L);                    /* table varnish.client.* */
 
@@ -1417,7 +1416,7 @@ inject_client(lua_State *L, struct sess *sp)
 
 
 static int
-inject_server(lua_State *L, struct sess *sp)
+inject_server(lua_State *L)
 {
     lua_newtable(L);                    /* table varnish.server.* */
 
@@ -1436,7 +1435,7 @@ inject_server(lua_State *L, struct sess *sp)
 
 
 static int
-inject_req_backend(lua_State *L, struct sess *sp)
+inject_req_backend(lua_State *L)
 {
     lua_newtable(L);                    /* table varnish.req.backend.* */
 
@@ -1455,7 +1454,7 @@ inject_req_backend(lua_State *L, struct sess *sp)
 
 
 static int
-inject_beresp_backend(lua_State *L, struct sess *sp)
+inject_beresp_backend(lua_State *L)
 {
     lua_newtable(L);                    /* table varnish.resp.backend.* */
 
@@ -1474,15 +1473,15 @@ inject_beresp_backend(lua_State *L, struct sess *sp)
 
 
 static int
-inject_req(lua_State *L, struct sess *sp)
+inject_req(lua_State *L)
 {
     lua_newtable(L);                    /* table varnish.req.* */
 
     /* table varnish.req.http.* */
-    inject_req_http(L, sp);
+    inject_req_http(L);
 
     /* table varnish.req.backend.* */
-    inject_req_backend(L, sp);
+    inject_req_backend(L);
 
     lua_createtable(L, 0, 2);           /* metatable */
 
@@ -1499,12 +1498,12 @@ inject_req(lua_State *L, struct sess *sp)
 
 
 static int
-inject_bereq(lua_State *L, struct sess *sp)
+inject_bereq(lua_State *L)
 {
     lua_newtable(L);                    /* table varnish.bereq.* */
 
     /* table varnish.bereq.http.* */
-    inject_bereq_http(L, sp);
+    inject_bereq_http(L);
 
     lua_createtable(L, 0, 2);           /* metatable */
 
@@ -1521,15 +1520,15 @@ inject_bereq(lua_State *L, struct sess *sp)
 
 
 static int
-inject_beresp(lua_State *L, struct sess *sp)
+inject_beresp(lua_State *L)
 {
     lua_newtable(L);                    /* table varnish.beresp.* */
 
     /* table varnish.beresp.http.* */
-    inject_beresp_http(L, sp);
+    inject_beresp_http(L);
 
     /* table varnish.beresp.backend.* */
-    inject_beresp_backend(L, sp);
+    inject_beresp_backend(L);
 
     lua_createtable(L, 0, 2);           /* metatable */
 
@@ -1546,12 +1545,12 @@ inject_beresp(lua_State *L, struct sess *sp)
 
 
 static int
-inject_obj(lua_State *L, struct sess *sp)
+inject_obj(lua_State *L)
 {
     lua_newtable(L);                    /* table varnish.obj.* */
 
     /* table varnish.obj.http.* */
-    inject_obj_http(L, sp);
+    inject_obj_http(L);
 
     lua_createtable(L, 0, 2);           /* metatable */
 
@@ -1568,12 +1567,12 @@ inject_obj(lua_State *L, struct sess *sp)
 
 
 static int
-inject_resp(lua_State *L, struct sess *sp)
+inject_resp(lua_State *L)
 {
     lua_newtable(L);                    /* table varnish.resp.* */
 
     /* table varnish.resp.http.* */
-    inject_resp_http(L, sp);
+    inject_resp_http(L);
 
     lua_createtable(L, 0, 2);           /* metatable */
 
@@ -1590,30 +1589,30 @@ inject_resp(lua_State *L, struct sess *sp)
 
 
 static void
-inject_sess(lua_State *L, struct sess *sp)
+inject_varnish(lua_State *L)
 {
     lua_createtable(L, 0, 99);          /* table varnish.* */
 
     /* table varnish.client.* */
-    inject_client(L, sp);
+    inject_client(L);
 
     /* table varnish.server.* */
-    inject_server(L, sp);
+    inject_server(L);
 
     /* table varnish.req.* */
-    inject_req(L, sp);
+    inject_req(L);
 
     /* table varnish.bereq.* */
-    inject_bereq(L, sp);
+    inject_bereq(L);
 
     /* table varnish.beresp.* */
-    inject_beresp(L, sp);
+    inject_beresp(L);
 
     /* table varnish.obj.* */
-    inject_obj(L, sp);
+    inject_obj(L);
 
     /* table varnish.resp.* */
-    inject_resp(L, sp);
+    inject_resp(L);
 
     lua_createtable(L, 0, 2);           /* metatable */
     lua_pushcfunction(L, vcl_varnish_get);
@@ -1691,12 +1690,13 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 }
 
 
-/* "lua.init('/path/to/?.lua;', '/cpath/to/?.so;')" */
+/* "lua.init('/path/to/?.lua;', '/cpath/to/?.so;', '/path/to/foo.lua')" */
 void
 vmod_init(struct sess *sp, struct vmod_priv *priv,
-          const char *path, const char *cpath)
+          const char *path, const char *cpath, const char *luafile)
 {
-    lua_State *L;
+    lua_State  *L;
+    int         base;
 
     LOG_T("VMOD[lua] init called\n");
 
@@ -1712,66 +1712,43 @@ vmod_init(struct sess *sp, struct vmod_priv *priv,
             return;
         }
 
+        if (luaL_loadfile(L, luafile) != 0) {
+            LOG_E("VMOD[lua] luaL_loadfile(\"%s\") failed, errstr=\"%s\"\n",
+                  luafile, luaL_checkstring(L, -1));
+            lua_pop(L, 1);
+            return;
+        }
+
+        base = lua_gettop(L);
+        lua_pushcfunction(L, traceback);
+        lua_insert(L, base);
+    
+        if (lua_pcall(L, 0, 0, base) != 0) {
+            LOG_E("VMOD[lua] lua_pcall(\"%s\") failed, errstr=\"%s\"\n",
+                  luafile, luaL_checkstring(L, -1));
+            lua_settop(L, 0);
+            return;
+        }
+    
+        lua_remove(L, base);
+    
+        if (lua_gettop(L) != 0) {
+            LOG_E("VMOD[lua] lua VM stack not empty, top: %d\n", lua_gettop(L));
+        }
+
         pthread_setspecific(thread_key, (const void *)L);
     }
 }
-
-
-/* "lua.loadfile('/path/to/foo.lua')" */
-void
-vmod_loadfile(struct sess *sp, struct vmod_priv *priv, const char *filename)
-{
-    lua_State  *L;
-    int         base;
-
-    LOG_T("VMOD[lua] loadfile called\n");
-
-    if (sp == NULL) {
-        LOG_E("VMOD[lua] loadfile can not be called in this VCL\n");
-        return;
-    }
-
-    L = pthread_getspecific(thread_key);
-    if (L == NULL) {
-        LOG_E("VMOD[lua] init should called first\n");
-        return;
-    }
-
-    if (luaL_loadfile(L, filename) != 0) {
-        LOG_E("VMOD[lua] luaL_loadfile(\"%s\") failed, errstr=\"%s\"\n",
-              filename, luaL_checkstring(L, -1));
-        lua_pop(L, 1);
-        return;
-    }
-
-    base = lua_gettop(L);
-    lua_pushcfunction(L, traceback);
-    lua_insert(L, base);
-
-    if (lua_pcall(L, 0, 0, base) != 0) {
-        LOG_E("VMOD[lua] lua_pcall(\"%s\") failed, errstr=\"%s\"\n",
-              filename, luaL_checkstring(L, -1));
-        lua_settop(L, 0);
-        return;
-    }
-
-    lua_remove(L, base);
-
-    if (lua_gettop(L) != 0) {
-        LOG_E("VMOD[lua] lua VM stack not empty, top: %d\n", lua_gettop(L));
-    }
-    return;
-}
-
 
 
 /* "lua.call(foo)" */
 const char *
 vmod_call(struct sess *sp, struct vmod_priv *priv, const char *function)
 {
-    lua_State   *L;
-    const char  *ret = NULL;
-    int          base, type;
+    lua_State    *L;
+    const char   *ret = NULL;
+    struct sess  *osp;
+    int           base, type;
 
     LOG_T("VMOD[lua] lua.call(\"%s\")\n", function);
 
@@ -1784,6 +1761,12 @@ vmod_call(struct sess *sp, struct vmod_priv *priv, const char *function)
     if (L == NULL) {
         LOG_E("VMOD[lua] \"init\" and \"loadfile\" should be called first\n");
         return NULL;
+    }
+
+    osp = get_sess(L);
+    if (osp != sp) {
+        /* set new sess to global variable */
+        set_sess(L, sp);
     }
 
     lua_getglobal(L, function);

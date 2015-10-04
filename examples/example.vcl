@@ -8,9 +8,8 @@ backend default {
 
 sub vcl_recv {
     lua.init("/usr/local/varnish/etc/lua/?.lua",
-             "/usr/local/varnish/etc/lua/?.so");
-    lua.loadfile("/usr/local/varnish/etc/varnish/foo.lua");
-    lua.loadfile("/usr/local/varnish/etc/varnish/bar.lua");
+             "/usr/local/varnish/etc/lua/?.so",
+             "/usr/local/varnish/etc/varnish/foo.lua");
 }
 
 sub vcl_deliver {
@@ -28,8 +27,6 @@ sub vcl_deliver {
 
     set resp.http.x-obj = lua.call("test_obj");
     set resp.http.x-resp = lua.call("test_resp");
-
-    lua.cleanup();
 
     return (deliver);
 }
