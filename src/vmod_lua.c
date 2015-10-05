@@ -19,7 +19,7 @@
 #define DEBUG       1
 
 
-#define LIBVMOD_LUA_VERSION     "0.3"
+#define LIBVMOD_LUA_VERSION     "0.4"
 #define LIBVMOD_LUA_AUTHOR      "Gu Feng <flygoast@126.com>"
 
 
@@ -32,12 +32,15 @@
 
 
 #define VARNISH_SESSION_KEY     "__varnish_session_key"
+#define VARNISH_XID_KEY         "__varnish_xid_key"
 
 
 jmp_buf jmpbuffer;
 
-static pthread_once_t thread_once = PTHREAD_ONCE_INIT;
-static pthread_key_t  thread_key;
+static pthread_once_t   thread_once = PTHREAD_ONCE_INIT;
+static pthread_key_t    thread_vm_key;
+static pthread_key_t    request_vm_key;
+static pthread_mutex_t  mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 typedef int (*handler_t)(lua_State *L, struct sess *sp);
@@ -48,13 +51,19 @@ typedef struct {
     handler_t        handler;
 } var_handler_t;
 
+typedef struct {
+    lua_State  *L;
+} lua_config_t;
+
 
 static void make_thread_key();
-static lua_State *new_lua_state(struct sess *sp, const char *path,
-    const char *cpath);
+static lua_State *new_lua_state(const char *path, const char *cpath);
+static lua_State *new_lua_thread(lua_State *BL);
 static void free_lua_state(void *L);
 static struct sess *get_sess(lua_State *L);
 static void set_sess(lua_State *L, struct sess *sp);
+static unsigned int get_xid(lua_State *L);
+static void set_xid(lua_State *L, unsigned int xid);
 static int vcl_now(lua_State *, struct sess *sp);
 static int vcl_client_ip(lua_State *L, struct sess *sp);
 static int vcl_client_port(lua_State *L, struct sess *sp);
@@ -225,6 +234,16 @@ static var_handler_t beresp_backend_handlers[] = {
 };
 
 
+static void
+free_config(lua_config_t *cfg)
+{
+    if (cfg) {
+        lua_close(cfg->L);
+        free(cfg);
+    }
+}
+
+
 static int
 vcl_obj_proto(lua_State *L, struct sess *sp)
 {
@@ -361,7 +380,8 @@ vcl_obj_lastuse(lua_State *L, struct sess *sp)
 static void
 make_thread_key()
 {
-    pthread_key_create(&thread_key, free_lua_state);
+    pthread_key_create(&thread_vm_key, free_lua_state);
+    pthread_key_create(&request_vm_key, free_lua_state);
 }
 
 
@@ -383,6 +403,27 @@ set_sess(lua_State *L, struct sess *sp)
 {
     lua_pushlightuserdata(L, sp);
     lua_setglobal(L, VARNISH_SESSION_KEY);
+}
+
+
+static unsigned int
+get_xid(lua_State *L)
+{
+    unsigned int  xid;
+
+    lua_getglobal(L, VARNISH_XID_KEY);
+    xid = (unsigned int) lua_tointeger(L, -1);
+    lua_pop(L, 1);
+
+    return xid;
+}
+
+
+static void
+set_xid(lua_State *L, unsigned int xid)
+{
+    lua_pushinteger(L, (lua_Integer) xid);
+    lua_setglobal(L, VARNISH_XID_KEY);
 }
 
 
@@ -909,7 +950,7 @@ vcl_beresp_backend_port(lua_State *L, struct sess *sp)
 
 
 static lua_State*
-new_lua_state(struct sess *sp, const char *path, const char *cpath)
+new_lua_state(const char *path, const char *cpath)
 {
     lua_State   *L;
     const char  *old_path;
@@ -980,6 +1021,26 @@ failed:
     }
 
     return NULL;
+}
+
+
+static lua_State *
+new_lua_thread(lua_State *BL)
+{
+    lua_State  *L;
+    L = lua_newthread(BL);
+
+    lua_createtable(L, 0, 0);
+    lua_pushvalue(L, -1);
+    lua_setfield(L, -2, "_G");
+
+    lua_createtable(L, 0, 1);
+    lua_pushvalue(L, LUA_GLOBALSINDEX);
+    lua_setfield(L, -2, "__index");
+    lua_setmetatable(L, -2);
+
+    lua_replace(L, LUA_GLOBALSINDEX);
+    return L;
 }
 
 
@@ -1692,6 +1753,7 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
     LOG_T("VMOD[lua] init_function called\n");
 
     pthread_once(&thread_once, make_thread_key);
+    priv->free = (vmod_priv_free_f *) free_config;
 
     return 0;
 }
@@ -1702,60 +1764,72 @@ void
 vmod_init(struct sess *sp, struct vmod_priv *priv,
           const char *path, const char *cpath, const char *luafile)
 {
-    lua_State  *L;
-    int         base;
+    lua_config_t  *cfg;
+    lua_State     *L;
+    int            base;
 
     LOG_T("VMOD[lua] init called\n");
 
-    if (sp == NULL) {
-        LOG_E("VMOD[lua] init can not called in this VCL\n");
+    if (sp != NULL) {
+        LOG_E("VMOD[lua] init can only be called in vcl_init\n");
         return;
     }
 
-    L = pthread_getspecific(thread_key);
+    L = new_lua_state(path, cpath);
     if (L == NULL) {
-        L = new_lua_state(sp, path, cpath);
-        if (L == NULL) {
-            return;
-        }
-
-        if (luaL_loadfile(L, luafile) != 0) {
-            LOG_E("VMOD[lua] luaL_loadfile(\"%s\") failed, errstr=\"%s\"\n",
-                  luafile, luaL_checkstring(L, -1));
-            lua_pop(L, 1);
-            return;
-        }
-
-        base = lua_gettop(L);
-        lua_pushcfunction(L, traceback);
-        lua_insert(L, base);
-    
-        if (lua_pcall(L, 0, 0, base) != 0) {
-            LOG_E("VMOD[lua] lua_pcall(\"%s\") failed, errstr=\"%s\"\n",
-                  luafile, luaL_checkstring(L, -1));
-            lua_settop(L, 0);
-            return;
-        }
-    
-        lua_remove(L, base);
-    
-        if (lua_gettop(L) != 0) {
-            LOG_E("VMOD[lua] lua VM stack not empty, top: %d\n", lua_gettop(L));
-        }
-
-        pthread_setspecific(thread_key, (const void *)L);
+        LOG_E("VMOD[lua] init failed: create Lua state failed\n");
+        return;
     }
+
+    if (luaL_loadfile(L, luafile) != 0) {
+        LOG_E("VMOD[lua] luaL_loadfile(\"%s\") failed, errstr=\"%s\"\n",
+              luafile, luaL_checkstring(L, -1));
+        lua_close(L);
+        return;
+    }
+
+    base = lua_gettop(L);
+    lua_pushcfunction(L, traceback);
+    lua_insert(L, base);
+
+    if (lua_pcall(L, 0, 0, base) != 0) {
+        LOG_E("VMOD[lua] lua_pcall(\"%s\") failed, errstr=\"%s\"\n",
+              luafile, luaL_checkstring(L, -1));
+        lua_close(L);
+        return;
+    }
+
+    lua_remove(L, base);
+
+    if (lua_gettop(L) != 0) {
+        LOG_E("VMOD[lua] lua VM stack not empty, top: %d\n", lua_gettop(L));
+        lua_close(L);
+        return;
+    }
+
+    cfg = malloc(sizeof(lua_config_t));
+    if (cfg == NULL) {
+        LOG_E("VMOD[lua] init failed: no memory\n");
+        return;
+    }
+
+    cfg->L = L;
+
+    if (priv->priv) {
+        free_config(priv->priv);
+    }
+    priv->priv = cfg;
 }
 
 
-/* "lua.call(foo)" */
+/* "lua.call(function)" */
 const char *
 vmod_call(struct sess *sp, struct vmod_priv *priv, const char *function)
 {
-    lua_State    *L;
-    const char   *ret = NULL;
-    struct sess  *osp;
-    int           base, type;
+    lua_State     *L, *BL;
+    const char    *ret = NULL;
+    unsigned int   oxid;
+    int            base, type;
 
     LOG_T("VMOD[lua] lua.call(\"%s\")\n", function);
 
@@ -1764,16 +1838,60 @@ vmod_call(struct sess *sp, struct vmod_priv *priv, const char *function)
         return NULL;
     }
 
-    L = pthread_getspecific(thread_key);
-    if (L == NULL) {
-        LOG_E("VMOD[lua] \"init\" and \"loadfile\" should be called first\n");
+    if (priv->priv == NULL) {
+        LOG_E("VMOD[lua] \"init\" should be called first in vcl_init\n");
         return NULL;
     }
 
-    osp = get_sess(L);
-    if (osp != sp) {
-        /* set new sess to global variable */
+    /* create a Lua state owned only by this thread */
+    BL = pthread_getspecific(thread_vm_key);
+    if (BL == NULL) {
+        pthread_mutex_lock(&mutex);
+        BL = new_lua_thread(((lua_config_t *) priv->priv)->L);
+        pthread_mutex_unlock(&mutex);
+        pthread_setspecific(thread_vm_key, BL);
+    }
+
+    L = pthread_getspecific(request_vm_key);
+    if (L == NULL) {
+        LOG_T("VMOD[lua] spawn a new Lua thread\n");
+
+        /* stack top of BL is new thread */
+        L = new_lua_thread(BL);
+
         set_sess(L, sp);
+        set_xid(L, sp->xid);
+
+        pthread_setspecific(request_vm_key, L);
+
+    } else {
+        oxid = get_xid(L);
+        if (oxid != sp->xid) {
+            LOG_T("VMOD[lua] spawn a new Lua thread to process new request\n");
+
+            if (!lua_isthread(BL, -1)) {
+                LOG_E("VMOD[lua] Lua VM crashed, top is not Lua thread\n");
+                lua_settop(BL, 0);
+                return NULL;
+            }
+
+            /* pop the old thread */
+            lua_pop(BL, 1);
+
+            lua_gc(BL, LUA_GCCOLLECT, 0);
+
+            /* another request */
+            L = new_lua_thread(BL);
+
+            set_sess(L, sp);
+            set_xid(L, sp->xid);
+            pthread_setspecific(request_vm_key, L);
+
+#ifdef DEBUG
+        } else {
+            LOG_T("VMOD[lua] use old Lua thread\n");
+#endif
+        }
     }
 
     lua_getglobal(L, function);
@@ -1784,6 +1902,9 @@ vmod_call(struct sess *sp, struct vmod_priv *priv, const char *function)
         lua_pop(L, 1);
         return NULL;
     }
+
+    lua_pushvalue(L, LUA_GLOBALSINDEX);
+    lua_setfenv(L, -2);
 
     lua_atpanic(L, atpanic);
 
@@ -1850,15 +1971,14 @@ vmod_cleanup(struct sess *sp, struct vmod_priv *priv)
 
     LOG_T("VMOD[lua] cleanup called\n");
 
-    if (sp == NULL) {
-        LOG_E("VMOD[lua] cleanup can not called in this VCL\n");
+    if (sp != NULL) {
+        LOG_E("VMOD[lua] cleanup should called in vcl_fini\n");
         return;
     }
 
-    L = pthread_getspecific(thread_key);
-    free_lua_state(L);
-
-    pthread_setspecific(thread_key, NULL);
+    if (priv->priv) {
+        free_config(priv->priv);
+    }
 }
 
 

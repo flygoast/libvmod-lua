@@ -8,7 +8,7 @@ Varnish Lua Module
 
 :Author: Gu Feng
 :Date: 2015-10-04
-:Version: 0.3
+:Version: 0.4
 :Manual section: 3
 
 SYNOPSIS
@@ -21,8 +21,14 @@ vcl
 
     import lua;
     
-    sub vcl_recv {
+    sub vcl_init {
         lua.init("/path/to/?.lua", "/path/to/?.so", "/path/to/lua/foo.lua");
+        return ok;
+    }
+
+    sub vcl_fini {
+        lua.cleanup();
+        return ok;
     }
     
     sub vcl_deliver {
@@ -77,7 +83,7 @@ Prototype
 Return value
 	VOID
 Description
-	Initialize a lua state struct to be used. Param 'path' and 'cpath' used to specify Lua search paths. Param 'luafile' specified the lua script need to run.
+	Initialize a lua state struct to be used. Param 'path' and 'cpath' used to specify Lua search paths. Param 'luafile' specified the lua script need to run. It should be called in vcl_init.
 Example
         ::
 
@@ -110,7 +116,7 @@ Prototype
 Return value
 	VOID
 Description
-	Release the resource used by Lua. Generally, you do NOT need to call this. The Lua state can be reused by multiple requests.
+	Release the resource used by Lua. It should be called in vcl_fini.
 Example
         ::
 
