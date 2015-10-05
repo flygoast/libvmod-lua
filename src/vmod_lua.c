@@ -1623,6 +1623,13 @@ inject_varnish(lua_State *L)
 
     lua_setmetatable(L, -2);
 
+    /* Add 'varnish' in package.loaded */
+    lua_getglobal(L, "package");
+    lua_getfield(L, -1, "loaded");
+    lua_pushvalue(L, -3);
+    lua_setfield(L, -2, "varnish");
+    lua_pop(L, 2);
+
     lua_setglobal(L, "varnish");
 }
 
