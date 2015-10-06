@@ -16,6 +16,9 @@
 #include "lauxlib.h"
 
 
+__attribute__((weakref)) vas_f *VAS_Fail;
+
+
 #define DEBUG       1
 
 
