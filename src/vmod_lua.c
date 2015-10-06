@@ -1878,8 +1878,6 @@ vmod_call(struct sess *sp, struct vmod_priv *priv, const char *function)
             /* pop the old thread */
             lua_pop(BL, 1);
 
-            lua_gc(BL, LUA_GCCOLLECT, 0);
-
             /* another request */
             L = new_lua_thread(BL);
 
