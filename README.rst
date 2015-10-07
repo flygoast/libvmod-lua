@@ -7,8 +7,8 @@ Varnish Lua Module
 ----------------------
 
 :Author: Gu Feng
-:Date: 2015-10-04
-:Version: 0.4
+:Date: 2015-10-07
+:Version: 0.5
 :Manual section: 3
 
 SYNOPSIS
