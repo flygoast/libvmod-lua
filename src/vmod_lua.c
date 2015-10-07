@@ -16,9 +16,6 @@
 #include "lauxlib.h"
 
 
-__attribute__((weakref)) vas_f *VAS_Fail;
-
-
 #define DEBUG       1
 
 
@@ -2012,6 +2009,9 @@ vmod_version(struct sess *sp)
 const char __invoke_dynamic_linker__[] __attribute__ ((section (".interp")))
     = RUNTIME_LINKER;
 #endif
+
+
+__attribute__((weakref)) vas_f *VAS_Fail;
 
 
 void
