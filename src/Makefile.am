@@ -1,21 +1,39 @@
-LUA_LIB ?= /usr/local/lib
-LUA_INC ?= /usr/local/include
-INCLUDES = -I$(VARNISHSRC)/include -I$(VARNISHSRC) -I$(LUA_INC)
+AM_CPPFLAGS = @VMOD_INCLUDES@ -Wall -Werror
 
-vmoddir = $(VMODDIR)
+vmoddir = @VMOD_DIR@
 vmod_LTLIBRARIES = libvmod_lua.la
 
-libvmod_lua_la_LDFLAGS = -module -export-dynamic -version-info 1:0:0 -Wl,-rpath,$(LUA_LIB) -Wl,-e,__libvmod_lua_main
-libvmod_lua_la_LIBADD = -L$(LUA_LIB) -llua
+libvmod_lua_la_LDFLAGS = -module -export-dynamic -avoid-version -shared -llua \
+	-Wl,-e,__libvmod_lua_main
 
 libvmod_lua_la_SOURCES = \
-	vcc_if.c \
-	vcc_if.h \
 	vmod_lua.c
 
-vcc_if.c vcc_if.h: $(VARNISHSRC)/lib/libvmod_std/vmod.py $(top_srcdir)/src/vmod_lua.vcc
-	@PYTHON@ $(VARNISHSRC)/lib/libvmod_std/vmod.py $(top_srcdir)/src/vmod_lua.vcc
+nodist_libvmod_lua_la_SOURCES = \
+	vcc_if.c \
+	vcc_if.h
 
-EXTRA_DIST = vmod_lua.vcc
+vmod_lua.lo: vcc_if.c vcc_if.h
 
-CLEANFILES = $(builddir)/vcc_if.c $(builddir)/vcc_if.h
+vcc_if.c: vcc_if.h
+
+vcc_if.h: @VMODTOOL@ $(top_srcdir)/src/vmod_lua.vcc
+	@VMODTOOL@ $(top_srcdir)/src/vmod_lua.vcc
+
+VMOD_TESTS = $(top_srcdir)/src/tests/*.vtc
+.PHONY: $(VMOD_TESTS)
+
+$(top_srcdir)/src/tests/*.vtc: libvmod_lua.la
+	@VARNISHTEST@ -Dvarnishd=@VARNISHD@ -Dvmod_topbuild=$(abs_top_builddir) $@
+
+check: $(VMOD_TESTS)
+
+EXTRA_DIST = \
+	vmod_lua.vcc \
+	$(VMOD_TESTS)
+
+CLEANFILES = \
+	$(builddir)/vcc_if.c \
+	$(builddir)/vcc_if.h \
+	$(builddir)/vmod_lua.rst \
+	$(builddir)/vmod_lua.man.rst

@@ -1,7 +1,7 @@
-Module lua 
-Init init_function
-Function VOID init(PRIV_VCL, STRING, STRING, STRING)
-Function STRING call(PRIV_VCL, STRING)
-Function VOID cleanup(PRIV_VCL)
-Function STRING author()
-Function STRING version()
+$Module lua 3
+$Event init_function
+$Function VOID init(PRIV_VCL, STRING, STRING, STRING)
+$Function STRING call(PRIV_VCL, STRING)
+$Function VOID cleanup(PRIV_VCL)
+$Function STRING author()
+$Function STRING version()

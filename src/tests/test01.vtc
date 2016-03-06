@@ -1,0 +1,33 @@
+varnishtest "Test lua vmod"
+
+server s1 {
+       rxreq
+       txresp
+} -start
+
+varnish v1 -vcl+backend {
+	import lua from "${vmod_topbuild}/src/.libs/libvmod_lua.so";
+
+    sub vcl_init {
+        lua.init("/home/vagrant/lua/?.lua", "/home/vagrant/lua/?.so",
+                 "/home/vagrant/lua/foo.lua");
+        return (ok);
+    }
+
+	sub vcl_deliver {
+		set resp.http.hello = lua.call("hello");
+	}
+
+    sub vcl_fini {
+        lua.cleanup();
+        return (ok);
+    }
+} -start
+
+client c1 {
+	txreq -url "/"
+	rxresp
+	expect resp.http.hello == "hello world"
+}
+
+client c1 -run
