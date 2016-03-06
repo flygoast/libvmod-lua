@@ -7,8 +7,8 @@ Varnish Lua Module
 ----------------------
 
 :Author: Gu Feng
-:Date: 2015-10-07
-:Version: 0.5
+:Date: 2016-03-05
+:Version: 0.6
 :Manual section: 3
 
 SYNOPSIS
@@ -23,12 +23,12 @@ vcl
     
     sub vcl_init {
         lua.init("/path/to/?.lua", "/path/to/?.so", "/path/to/lua/foo.lua");
-        return ok;
+        return (ok);
     }
 
     sub vcl_fini {
         lua.cleanup();
-        return ok;
+        return (ok);
     }
     
     sub vcl_deliver {
@@ -54,7 +54,6 @@ VCL variables exported as Lua global variables:
 - varnish.req.*
 - varnish.bereq.*
 - varnish.beresp.*
-- varnish.obj.*
 - varnish.resp.*
 
 For example, you can got user-agent header of request:
@@ -162,6 +161,9 @@ Make targets:
 NOTE
 ====
 
+* Branch 3.0 is for Varnish 3.0.x
+* Branch 4.1 is for Varnish 4.1.x
+
 If you want to load C modules compiled for Lua with require(), you need to
 make shure the public symbols (e.g. lua_setmetatable) are exported.
 
@@ -171,10 +173,11 @@ or
 
 - Link liblua or libluajitevery to every C modules 
 
+
 COPYRIGHT
 =========
 
 This document is licensed under the same license as the
 libvmod-lua project. See LICENSE for details.
 
-* Copyright (c) 2013-2015 Gu Feng <flygoast@126.com>
+* Copyright (c) 2013-2016 Gu Feng <flygoast@126.com>
